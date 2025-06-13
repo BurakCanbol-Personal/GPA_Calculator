@@ -2,6 +2,8 @@
 #include <vector>
 #include <fstream>
 #include <iomanip>
+#include <string>
+#include <limits>
 
 struct Course {
     std::string name;
@@ -14,13 +16,31 @@ std::vector<Course> courses;
 void addCourse() {
     Course c;
     std::cout << "Course name: ";
-    std::cin >> c.name;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    std::getline(std::cin, c.name);
+
     std::cout << "Grade (0.0 - 10.0): ";
     std::cin >> c.grade;
+    if (std::cin.fail() || c.grade < 0.0 || c.grade > 10.0) {
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        std::cout << "Invalid grade. Must be between 0.0 and 10.0.\n";
+        return;
+    }
+
     std::cout << "Credits: ";
     std::cin >> c.credits;
+    if (std::cin.fail() || c.credits <= 0) {
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        std::cout << "Invalid credit amount. Must be a positive number.\n";
+        return;
+    }
+
     courses.push_back(c);
+    std::cout << "Course added.\n";
 }
+
 
 double calculateGPA() {
     double totalPoints = 0.0;
@@ -46,6 +66,11 @@ void estimateNeededGPA() {
     std::cout << "Remaining course credits (total): ";
     std::cin >> futureCredits;
 
+    if (futureCredits <= 0) {
+        std::cout << "Invalid credit amount.\n";
+        return;
+    }
+
     double currentPoints = 0.0;
     int currentCredits = 0;
     for (const auto& c : courses) {
@@ -55,13 +80,23 @@ void estimateNeededGPA() {
 
     double requiredGPA = (targetGPA * (currentCredits + futureCredits) - currentPoints) / futureCredits;
     std::cout << std::fixed << std::setprecision(2);
-    std::cout << "You need an average GPA of " << requiredGPA << " in your remaining courses.\n";
+    if (requiredGPA > 10.0) {
+        std::cout << "⚠️ Not possible to reach target GPA with current data.\n";
+    } else if (requiredGPA < 0.0) {
+        std::cout << "🎉 You've already reached your target GPA!\n";
+    } else {
+        std::cout << "You need an average GPA of " << requiredGPA << " in your remaining courses.\n";
+    }
 }
 
 void saveToFile(const std::string& filename) {
     std::ofstream out(filename);
+    if (!out) {
+        std::cout << "Error opening file for writing.\n";
+        return;
+    }
     for (const auto& c : courses) {
-        out << c.name << ' ' << c.grade << ' ' << c.credits << '\n';
+        out << c.name << '\n' << c.grade << ' ' << c.credits << '\n';
     }
     std::cout << "Courses saved to " << filename << "\n";
 }
@@ -74,7 +109,10 @@ void loadFromFile(const std::string& filename) {
     }
     courses.clear();
     Course c;
-    while (in >> c.name >> c.grade >> c.credits) {
+    std::string line;
+    while (std::getline(in, c.name)) {
+        if (!(in >> c.grade >> c.credits)) break;
+        in.ignore();
         courses.push_back(c);
     }
     std::cout << "Courses loaded from " << filename << "\n";
